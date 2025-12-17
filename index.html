@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>聖誕送禮物到家跑酷遊戲 - 手機優化版</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif; 
+            background-color: #0F1020;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
+        }
+        
+        #canvas-container { 
+            width: 100%; 
+            height: 100vh; 
+            display: block; 
+            position: absolute; 
+            z-index: 1;
+            touch-action: none;
+        }
+        
+        /* UI 層 */
+        #ui-layer { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            z-index: 10; 
+        }
+        
+        #score-board {
+            position: absolute; 
+            top: 10px; 
+            left: 10px;
+            color: white; 
+            font-size: clamp(16px, 4vw, 22px);
+            text-shadow: 2px 2px 4px #ff0000;
+            font-weight: bold;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+
+        #timer-board {
+            position: absolute; 
+            top: 10px; 
+            right: 10px;
+            color: white; 
+            font-size: clamp(16px, 4vw, 22px);
+            text-shadow: 2px 2px 4px #0000ff;
+            font-weight: bold;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+
+        #status-indicator {
+            position: absolute; 
+            top: 50px; 
+            left: 10px;
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px;
+            max-width: 150px;
+        }
+        
+        .status-msg {
+            font-size: clamp(12px, 3.5vw, 16px);
+            color: #FFD700; 
+            text-shadow: 1px 1px 2px black;
+            font-weight: bold; 
+            animation: pulse 1s infinite;
+            background: rgba(0,0,0,0.6);
+            padding: 3px 8px;
+            border-radius: 5px;
+        }
+
+        /* 中央提示文字 */
+        #center-overlay {
+            position: absolute; 
+            top: 35%; 
+            left: 0; 
+            width: 100%;
+            text-align: center; 
+            pointer-events: none;
+            z-index: 20; 
+            display: none;
+        }
+        
+        #center-text {
+            font-size: clamp(32px, 10vw, 56px);
+            color: #fff; 
+            text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+            font-weight: 900; 
+            transition: transform 0.2s;
+        }
+
+        /* 選單畫面 */
+        #menu-screen, #end-screen {
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            pointer-events: auto; 
+            color: white; 
+            text-align: center;
+            z-index: 999; 
+            backdrop-filter: blur(5px);
+            padding: 20px;
+        }
+        
+        #end-screen { display: none; }
+        
+        h1 { 
+            font-size: clamp(24px, 7vw, 38px);
+            margin: 0; 
+            color: #ff3333; 
+            text-shadow: 3px 3px 0px #fff; 
+            margin-bottom: 15px; 
+        }
+        
+        p { 
+            font-size: clamp(14px, 3.5vw, 18px);
+            line-height: 1.6; 
+            color: #f0f8ff; 
+            margin-bottom: 25px; 
+            max-width: 90%; 
+        }
+        
+        .action-btn {
+            padding: 18px 45px; 
+            font-size: clamp(18px, 4.5vw, 24px);
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 50px;
+            cursor: pointer; 
+            box-shadow: 0 6px #1e7e34; 
+            transition: all 0.1s;
+            pointer-events: auto; 
+            user-select: none;
+            touch-action: manipulation;
+            font-weight: bold;
+        }
+        
+        .action-btn:active { 
+            transform: translateY(4px); 
+            box-shadow: 0 2px #1e7e34; 
+        }
+
+        /* 手機控制 - 預設顯示 */
+        .mobile-controls {
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        /* 虛擬搖桿 */
+        #joystick-zone {
+            position: absolute; 
+            bottom: 30px; 
+            left: 25px;
+            width: 130px; 
+            height: 130px;
+            background: radial-gradient(circle, rgba(100, 150, 235, 0.4) 0%, rgba(50, 100, 200, 0.25) 100%);
+            border: 3px solid rgba(135, 206, 235, 0.5);
+            border-radius: 50%;
+            pointer-events: auto; 
+            touch-action: none; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        
+        #joystick-knob {
+            position: absolute; 
+            top: 50%; 
+            left: 50%;
+            width: 55px; 
+            height: 55px;
+            background: radial-gradient(circle, rgba(255, 50, 50, 0.95) 0%, rgba(200, 0, 0, 0.95) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+        }
+        
+        #joystick-label {
+            position: absolute;
+            bottom: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            color: white;
+            text-shadow: 1px 1px 3px black;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* 跳躍按鈕 */
+        #jump-button {
+            position: absolute; 
+            bottom: 30px; 
+            right: 25px;
+            width: 130px; 
+            height: 130px;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.5) 0%, rgba(255, 165, 0, 0.35) 100%);
+            border: 3px solid rgba(255, 215, 0, 0.8);
+            border-radius: 50%;
+            pointer-events: auto; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center;
+            font-size: 42px;
+            color: white;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            touch-action: manipulation;
+            transition: all 0.15s;
+        }
+        
+        #jump-button:active {
+            transform: scale(0.92);
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.7) 0%, rgba(255, 165, 0, 0.55) 100%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        #jump-label {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* 控制說明 */
+        #control-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 20px;
+            font-size: clamp(14px, 3.5vw, 18px);
+            display: none;
+            z-index: 25;
+            animation: fadeInOut 3s ease-in-out;
+            text-align: center;
+        }
+        
+        #control-hint.show {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+        
+        /* 小螢幕優化 */
+        @media (max-width: 480px) {
+            #joystick-zone, #jump-button {
+                width: 110px;
+                height: 110px;
+                bottom: 25px;
+            }
+            
+            #joystick-zone {
+                left: 20px;
+            }
+            
+            #jump-button {
+                right: 20px;
+                font-size: 36px;
+            }
+            
+            #joystick-knob {
+                width: 48px;
+                height: 48px;
+            }
+
+            #score-board, #timer-board {
+                font-size: 14px;
+                padding: 4px 8px;
+            }
+
+            .status-msg {
+                font-size: 11px;
+                padding: 2px 6px;
+            }
+        }
+        
+        /* 橫屏優化 */
+        @media (orientation: landscape) and (max-height: 500px) {
+            #joystick-zone, #jump-button {
+                width: 95px;
+                height: 95px;
+                bottom: 15px;
+            }
+            
+            #joystick-knob {
+                width: 42px;
+                height: 42px;
+            }
+            
+            #jump-button {
+                font-size: 32px;
+            }
+
+            #score-board, #timer-board {
+                top: 5px;
+                font-size: 14px;
+            }
+
+            #status-indicator {
+                top: 35px;
+            }
+
+            #center-overlay {
+                top: 30%;
+            }
+        }
+
+        /* 超小設備 */
+        @media (max-width: 360px) {
+            #joystick-zone, #jump-button {
+                width: 100px;
+                height: 100px;
+            }
+
+            #joystick-knob {
+                width: 44px;
+                height: 44px;
+            }
+
+            #jump-button {
+                font-size: 32px;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="score-board">分數: 0</div>
+        <div id="timer-board">時間: 0s</div>
+        <div id="status-indicator"></div>
+    </div>
+
+    <div id="center-overlay"><div id="center-text"></div></div>
+
+    <!-- 開始選單 -->
+    <div id="menu-screen">
+        <h1>🎅 聖誕雪夜跑酷</h1>
+        <p>
+            聖誕老人在下雪的夜晚出發了！<br><br>
+            🐕 避開惡犬與障礙<br>
+            👶 小孩=無敵 ⭐ 星星=飛行<br>
+            🏠 房子=加速<br><br>
+            目標：撐60秒到達終點！
+        </p>
+        <button class="action-btn" id="start-btn">開始遊戲</button>
+    </div>
+
+    <!-- 結束選單 -->
+    <div id="end-screen">
+        <h1 id="end-title"></h1>
+        <p id="end-msg"></p>
+        <button class="action-btn" id="restart-btn">再玩一次</button>
+    </div>
+
+    <!-- 手機控制 -->
+    <div class="mobile-controls" id="mobile-controls">
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+            <div id="joystick-label">移動</div>
+        </div>
+        <div id="jump-button">
+            ⬆️
+            <div id="jump-label">跳躍</div>
+        </div>
+    </div>
+    
+    <div id="control-hint">👈 搖桿移動 | 跳躍按鈕 👉</div>
+
+<script>
+    // ==========================================
+    // 配置常數
+    // ==========================================
+    const CONFIG = {
+        GAME_DURATION: 60,
+        SPAWN_DISTANCE: -80,
+        CLEANUP_DISTANCE: 20,
+        INTRO_DURATION: 10,
+        INTRO_MOVE_TIME: 8,
+        BASE_SPEED: 25,
+        MAX_SPEED: 50,
+        NORMAL_GRAVITY: -60,
+        FLY_GRAVITY: -30,
+        NORMAL_JUMP: 20,
+        FLY_JUMP: 18,
+        MAX_Y: 8.0,
+        GROUND_Y: 0,
+        MAX_X: 7.5,
+        COLLISION_MARGIN: {
+            player: -0.6,
+            obstacle: -0.4,
+            obstacleHeightReduction: -0.2
+        },
+        SPAWN_RATES: {
+            obstacle: 1.5,
+            scenery: 0.1,
+            gift: 0.4
+        }
+    };
+
+    // ==========================================
+    // 全域變數
+    // ==========================================
+    let scene, camera, renderer, clock;
+    let santaGroup, bodyGroup, shieldMesh;
+    let ground; 
+    let starField;
+    
+    let gameState = 'MENU';
+    let gameTime = 0; 
+    let introTime = 0;
+    let endHouseSpawned = false;
+
+    let speed = 0;
+    let score = 0;
+    let powerups = { invincible: 0, fly: 0, speed: 0 };
+    
+    let obstacles = [];      
+    let sceneryObjects = []; 
+    let gifts = [];          
+    let particles = { mesh: null, speeds: [] };
+    
+    let spawnTimer = 0;
+    let scenerySpawnTimer = 0;
+    let giftSpawnTimer = 0;
+    
+    let playerVelocity = { x: 0, y: 0 };
+    let isJumping = false;
+    let gravity = CONFIG.NORMAL_GRAVITY;
+    let jumpForce = CONFIG.NORMAL_JUMP;
+
+    const keys = { left: false, right: false };
+    const joystick = { active: false, x: 0, y: 0 };
+
+    // DOM 元素
+    const scoreEl = document.getElementById('score-board');
+    const timerEl = document.getElementById('timer-board');
+    const statusEl = document.getElementById('status-indicator');
+    const centerOverlay = document.getElementById('center-overlay');
+    const centerText = document.getElementById('center-text');
+    const menuEl = document.getElementById('menu-screen');
+    const endEl = document.getElementById('end-screen');
+    const endTitle = document.getElementById('end-title');
+    const endMsg = document.getElementById('end-msg');
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const mobileControls = document.getElementById('mobile-controls');
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickKnob = document.getElementById('joystick-knob');
+    const jumpButton = document.getElementById('jump-button');
+    const controlHint = document.getElementById('control-hint');
+
+    // ==========================================
+    // 工具函數
+    // ==========================================
+    
+    function disposeObject(obj) {
+        if (!obj) return;
+        obj.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(m => m.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+        scene.remove(obj);
+    }
+
+    function cleanupGameObjects() {
+        obstacles.forEach(obj => disposeObject(obj));
+        obstacles = [];
+        gifts.forEach(obj => disposeObject(obj));
+        gifts = [];
+        sceneryObjects.forEach(obj => disposeObject(obj));
+        sceneryObjects = [];
+    }
+
+    function getDifficulty() {
+        const progress = Math.min(gameTime / CONFIG.GAME_DURATION, 1);
+        return {
+            spawnRate: CONFIG.SPAWN_RATES.obstacle - (progress * 0.6),
+            dogChance: 0.3 + (progress * 0.2)
+        };
+    }
+
+    // ==========================================
+    // 場景初始化
+    // ==========================================
+    
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0F1020);
+        scene.fog = new THREE.Fog(0x0F1020, 30, 150); 
+
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+        camera.position.set(0, 5, 8);
+        camera.lookAt(0, 2, -10);
+
+        renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance" // 手機性能優化
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，提升性能
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x445566, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xaaccff, 0.8);
+        dirLight.position.set(30, 80, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50;
+        dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.mapSize.width = 1024; // 降低陰影解析度以提升性能
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(2000, 2000), 
+            new THREE.MeshToonMaterial({ color: 0xffffff, side: THREE.DoubleSide }) 
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.01;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        createSanta();
+        createStarField();
+        createSnowSystem();
+        setupEventListeners();
+
+        for(let z = -100; z < 20; z += 10) spawnScenery(z);
+
+        clock = new THREE.Clock();
+        animate();
+    }
+
+    // ==========================================
+    // 角色創建
+    // ==========================================
+    
+    function createSanta() {
+        santaGroup = new THREE.Group();
+        
+        const hitbox = new THREE.Mesh(
+            new THREE.BoxGeometry(1.0, 2.0, 1.0), 
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hitbox.position.y = 1.0;
+        santaGroup.add(hitbox);
+
+        const shieldGeo = new THREE.SphereGeometry(1.8, 16, 16); // 降低幾何複雜度
+        const shieldMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.3, 
+            wireframe: true 
+        });
+        shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.y = 1.2;
+        shieldMesh.visible = false;
+        santaGroup.add(shieldMesh);
+
+        bodyGroup = new THREE.Group();
+        santaGroup.add(bodyGroup);
+
+        const materials = {
+            red: new THREE.MeshToonMaterial({ color: 0xd40000 }),
+            white: new THREE.MeshToonMaterial({ color: 0xffffff }),
+            skin: new THREE.MeshToonMaterial({ color: 0xffdbac }),
+            black: new THREE.MeshToonMaterial({ color: 0x1a1a1a }),
+            gold: new THREE.MeshStandardMaterial({ color: 0xFFD700 }),
+            sack: new THREE.MeshToonMaterial({ color: 0x8B4513 })
+        };
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.8), materials.red);
+        torso.position.y = 1.4;
+        torso.castShadow = true;
+        bodyGroup.add(torso);
+
+        const sack = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.6), materials.sack);
+        sack.position.set(0, 1.6, 0.65);
+        sack.rotation.x = -0.2;
+        bodyGroup.add(sack);
+        
+        const sackKnot = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), materials.sack);
+        sackKnot.position.set(0, 2.1, 0.7);
+        bodyGroup.add(sackKnot);
+
+        const belt = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.2, 0.85), materials.black);
+        belt.position.y = 1.0;
+        bodyGroup.add(belt);
+        
+        const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.25, 0.9), materials.gold);
+        buckle.position.set(0, 1.0, 0);
+        bodyGroup.add(buckle);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), materials.skin);
+        head.position.y = 2.3;
+        bodyGroup.add(head);
+
+        const beard = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.2), materials.white);
+        beard.position.set(0, 2.15, 0.35);
+        bodyGroup.add(beard);
+
+        const hatGroup = new THREE.Group();
+        const hatRim = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.12, 8, 12), materials.white);
+        hatRim.rotation.x = Math.PI / 2;
+        hatRim.position.y = 2.7;
+        hatGroup.add(hatRim);
+        
+        const hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 12), materials.red);
+        hatCone.position.set(0, 3.0, -0.1);
+        hatCone.rotation.x = -0.2;
+        hatGroup.add(hatCone);
+        
+        const pom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), materials.white);
+        pom.position.set(0, 3.35, -0.25);
+        hatGroup.add(pom);
+        bodyGroup.add(hatGroup);
+
+        const limbGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+        const leftArm = new THREE.Mesh(limbGeo, materials.red);
+        leftArm.position.set(-0.65, 1.5, 0);
+        bodyGroup.add(leftArm);
+        
+        const rightArm = new THREE.Mesh(limbGeo, materials.red);
+        rightArm.position.set(0.65, 1.5, 0);
+        bodyGroup.add(rightArm);
+        
+        const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), materials.red);
+        leftLeg.position.set(-0.3, 0.4, 0);
+        bodyGroup.add(leftLeg);
+        
+        const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), materials.red);
+        rightLeg.position.set(0.3, 0.4, 0);
+        bodyGroup.add(rightLeg);
+
+        const bootGeo = new THREE.BoxGeometry(0.32, 0.3, 0.4);
+        const bootL = new THREE.Mesh(bootGeo, materials.black);
+        bootL.position.y = -0.25;
+        bootL.position.z = 0.05;
+        leftLeg.add(bootL);
+        
+        const bootR = new THREE.Mesh(bootGeo, materials.black);
+        bootR.position.y = -0.25;
+        bootR.position.z = 0.05;
+        rightLeg.add(bootR);
+
+        santaGroup.userData = { leftArm, rightArm, leftLeg, rightLeg };
+        scene.add(santaGroup);
+    }
+
+    // ==========================================
+    // 星空系統
+    // ==========================================
+    function createStarField() {
+        const starCount = 1500; // 降低星星數量以提升性能
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+
+        for (let i = 0; i < starCount; i++) {
+            const r = 300 + Math.random() * 100;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = Math.abs(r * Math.sin(phi) * Math.sin(theta)); 
+            const z = r * Math.cos(phi);
+
+            positions.push(x, y, z);
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        
+        const material = new THREE.PointsMaterial({ 
+            color: 0xFFFFFF, 
+            size: 1.5,
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: true
+        });
+
+        starField = new THREE.Points(geometry, material);
+        scene.add(starField);
+    }
+
+    // ==========================================
+    // 物件工廠
+    // ==========================================
+    
+    function createDog() {
+        const dogGroup = new THREE.Group();
+        const brownMat = new THREE.MeshToonMaterial({ color: 0x8B4513 });
+        
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.7), brownMat);
+        body.position.y = 0.4;
+        body.castShadow = true;
+        dogGroup.add(body);
+        
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.4), brownMat);
+        head.position.set(0, 0.75, 0.4);
+        dogGroup.add(head);
+
+        const legGeo = new THREE.BoxGeometry(0.12, 0.3, 0.12);
+        const legs = [];
+        const positions = [
+            [-0.18, 0.15, 0.25],
+            [0.18, 0.15, 0.25],
+            [-0.18, 0.15, -0.25],
+            [0.18, 0.15, -0.25]
+        ];
+        
+        positions.forEach(pos => {
+            const leg = new THREE.Mesh(legGeo, brownMat);
+            leg.position.set(...pos);
+            dogGroup.add(leg);
+            legs.push(leg);
+        });
+        
+        dogGroup.userData = { type: 'obstacle', subtype: 'dog', legs: legs };
+        dogGroup.scale.set(2, 2, 2);
+        return dogGroup;
+    }
+
+    function createKid() {
+        const group = new THREE.Group();
+        const coatColor = Math.random() > 0.5 ? 0x0000ff : 0xff69b4;
+        
+        const kidBody = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6, 0.8, 0.4), 
+            new THREE.MeshToonMaterial({ color: coatColor })
+        );
+        kidBody.position.y = 0.4;
+        kidBody.castShadow = true;
+        group.add(kidBody);
+        
+        const kidHead = new THREE.Mesh(
+            new THREE.SphereGeometry(0.25, 8, 8), 
+            new THREE.MeshToonMaterial({ color: 0xffdbac })
+        );
+        kidHead.position.y = 0.95;
+        group.add(kidHead);
+        
+        group.userData = { type: 'kid' };
+        return group;
+    }
+
+    function createStar() {
+        const starGeo = new THREE.IcosahedronGeometry(0.5, 0);
+        const starMat = new THREE.MeshToonMaterial({ color: 0xFFFF00, emissive: 0x444400 });
+        const star = new THREE.Mesh(starGeo, starMat);
+        star.position.y = 1.5;
+        star.userData = { type: 'star', rotate: true };
+        return star;
+    }
+
+    function createHouse(isPowerup = false) {
+        const group = new THREE.Group();
+        const color = isPowerup ? 0xffffaa : 0xccaa88;
+        
+        const box = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 1.2, 1.5), 
+            new THREE.MeshToonMaterial({ color: color })
+        );
+        box.position.y = 0.6;
+        group.add(box);
+        
+        const roof = new THREE.Mesh(
+            new THREE.ConeGeometry(1.3, 1, 4), 
+            new THREE.MeshToonMaterial({ color: 0xcc0000 })
+        );
+        roof.position.y = 1.7;
+        roof.rotation.y = Math.PI / 4;
+        group.add(roof);
+        
+        group.userData = { type: isPowerup ? 'house_powerup' : 'obstacle' };
+        return group;
+    }
+
+    function createEndHouse(zPos) {
+        const group = new THREE.Group();
+        
+        const box = new THREE.Mesh(
+            new THREE.BoxGeometry(4, 3, 4), 
+            new THREE.MeshToonMaterial({ color: 0xFFD700 })
+        );
+        box.position.y = 1.5;
+        group.add(box);
+        
+        const roof = new THREE.Mesh(
+            new THREE.ConeGeometry(3.5, 2.5, 4), 
+            new THREE.MeshToonMaterial({ color: 0xFF0000 })
+        );
+        roof.position.y = 4.2;
+        roof.rotation.y = Math.PI / 4;
+        group.add(roof);
+        
+        const door = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1.5, 0.1), 
+            new THREE.MeshToonMaterial({ color: 0x5c4033 })
+        );
+        door.position.set(0, 0.75, 2.05);
+        group.add(door);
+
+        group.position.set(0, 0, zPos);
+        group.userData = { type: 'end_house' };
+        scene.add(group);
+        obstacles.push(group);
+    }
+
+    function createTree() {
+        const obj = new THREE.Group();
+        
+        const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.8, 8), 
+            new THREE.MeshToonMaterial({ color: 0x5c4033 })
+        );
+        trunk.position.y = 0.4;
+        obj.add(trunk);
+        
+        const leaves = new THREE.Mesh(
+            new THREE.ConeGeometry(1.2, 1.5, 8), 
+            new THREE.MeshToonMaterial({ color: 0x0f5d26 })
+        );
+        leaves.position.y = 1.1;
+        obj.add(leaves);
+        
+        obj.userData = { type: 'obstacle' };
+        return obj;
+    }
+
+    function createObstacleObject(zPos) {
+        let obj;
+        const rand = Math.random();
+        const difficulty = getDifficulty();
+        
+        if (rand < 0.1) {
+            obj = createKid(); 
+        } else if (rand < 0.15) { 
+            obj = createStar(); 
+        } else if (rand < 0.30) { 
+            obj = createHouse(true); 
+        } else if (rand < 0.30 + difficulty.dogChance) {
+            obj = createDog();
+        } else {
+            obj = createTree();
+        }
+
+        const xPos = (Math.random() - 0.5) * CONFIG.MAX_X * 1.5;
+        obj.position.set(xPos, 0, zPos);
+        if (obj.userData.subtype === 'dog') obj.position.y = 0;
+
+        scene.add(obj);
+        obstacles.push(obj);
+    }
+
+    // ==========================================
+    // 粒子系統 (雪花)
+    // ==========================================
+    
+    function createSnowSystem() {
+        const particleCount = 2000; // 降低粒子數量以提升手機性能
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+        
+        for (let i = 0; i < particleCount; i++) {
+            positions.push(
+                (Math.random() - 0.5) * 200, 
+                Math.random() * 80,          
+                (Math.random() - 0.5) * 200
+            );
+        }
+        
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        
+        const material = new THREE.PointsMaterial({ 
+            color: 0xffffff, 
+            size: 0.4, 
+            transparent: true, 
+            opacity: 0.8 
+        });
+        
+        const snow = new THREE.Points(geometry, material);
+        snow.frustumCulled = false; 
+        
+        scene.add(snow);
+        particles.mesh = snow;
+        
+        for (let i = 0; i < particleCount; i++) {
+            particles.speeds.push(0.05 + Math.random() * 0.25); 
+        }
+    }
+
+    function updateSnow() {
+        if (!particles.mesh) return;
+        
+        const positions = particles.mesh.geometry.attributes.position.array;
+        const pZ = santaGroup ? santaGroup.position.z : 0;
+        
+        const depth = 200;       
+        
+        for (let i = 0; i < positions.length / 3; i++) {
+            const idx = i * 3;
+            
+            positions[idx + 1] -= particles.speeds[i]; 
+            positions[idx] -= 0.03; 
+            
+            if (positions[idx + 1] < 0) {
+                positions[idx + 1] = 80;
+                positions[idx] = (Math.random() - 0.5) * 200; 
+                positions[idx + 2] = pZ + (Math.random() - 0.5) * 120;
+            }
+            
+            if (positions[idx] < -100) positions[idx] += 200;
+
+            const diffZ = positions[idx + 2] - pZ;
+            
+            if (diffZ > 50) {
+                positions[idx + 2] -= depth;
+            } else if (diffZ < -150) {
+                positions[idx + 2] += depth;
+            }
+        }
+        
+        particles.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function spawnScenery(zPos) {
+        const isLeft = Math.random() > 0.5;
+        const xPos = isLeft ? -(10 + Math.random() * 20) : (10 + Math.random() * 20);
+        
+        const obj = new THREE.Group();
+        const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 1.5, 8), 
+            new THREE.MeshToonMaterial({ color: 0x5c4033 })
+        );
+        obj.add(trunk);
+        
+        const leaves = new THREE.Mesh(
+            new THREE.ConeGeometry(2, 4, 8), 
+            new THREE.MeshToonMaterial({ color: 0x0f5d26 })
+        );
+        leaves.position.y = 2;
+        obj.add(leaves);
+        
+        obj.position.set(xPos, 0, zPos);
+        const s = 1 + Math.random();
+        obj.scale.set(s, s, s);
+        
+        scene.add(obj);
+        sceneryObjects.push(obj);
+    }
+
+    // ==========================================
+    // 遊戲邏輯
+    // ==========================================
+
+    function activateEffect(type, obj) {
+        if (type === 'kid') {
+            score += 300;
+            powerups.invincible = 10;
+            const heart = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.5, 0.1), 
+                new THREE.MeshBasicMaterial({ color: 0xff1493 })
+            );
+            heart.position.copy(obj.position);
+            heart.position.y += 1;
+            scene.add(heart);
+            setTimeout(() => scene.remove(heart), 1000);
+        } 
+        else if (type === 'star') {
+            powerups.fly = 10;
+            gravity = CONFIG.FLY_GRAVITY;
+            jumpForce = CONFIG.FLY_JUMP;
+            playerVelocity.y = 12; 
+        } 
+        else if (type === 'house_powerup') {
+            score += 100;
+            powerups.speed = 10;
+            speed = CONFIG.BASE_SPEED * 2;
+            obj.children.forEach(child => {
+                if (child.material) {
+                    child.material.emissive = new THREE.Color(0xffff00);
+                }
+            });
+        }
+        updateScoreDisplay();
+    }
+
+    function updateScoreDisplay() {
+        scoreEl.innerText = `分數: ${Math.floor(score)}`;
+    }
+
+    function startIntro() {
+        menuEl.style.display = 'none';
+        endEl.style.display = 'none';
+        scoreEl.innerText = '分數: 0';
+        timerEl.innerText = '時間: 0s';
+        statusEl.innerHTML = '';
+        
+        score = 0;
+        gameTime = 0;
+        introTime = 0;
+        speed = 0;
+        endHouseSpawned = false;
+        
+        spawnTimer = 0;
+        scenerySpawnTimer = 0;
+        giftSpawnTimer = 0;
+        
+        powerups = { invincible: 0, fly: 0, speed: 0 };
+        gravity = CONFIG.NORMAL_GRAVITY;
+        jumpForce = CONFIG.NORMAL_JUMP;
+        
+        santaGroup.position.set(-8, 0, 0);
+        santaGroup.rotation.set(0, -Math.PI / 2, 0);
+        playerVelocity = { x: 0, y: 0 };
+        shieldMesh.visible = false;
+        
+        cleanupGameObjects();
+        
+        for (let z = -100; z < 20; z += 10) spawnScenery(z);
+        
+        gameState = 'INTRO';
+        centerOverlay.style.display = 'block';
+        centerText.innerText = "準備送禮物囉...";
+        
+        // 顯示控制提示
+        controlHint.classList.add('show');
+        setTimeout(() => {
+            controlHint.classList.remove('show');
+        }, 3500);
+    }
+
+    function gameWin() {
+        gameState = 'END';
+        speed = 0;
+        centerOverlay.style.display = 'none';
+        endEl.style.display = 'flex';
+        endTitle.innerText = "🎄 聖誕快樂！";
+        endMsg.innerHTML = `你成功送達禮物！<br><br>最終得分: ${Math.floor(score)}`;
+    }
+
+    function gameOver() {
+        gameState = 'END';
+        speed = 0;
+        centerOverlay.style.display = 'none';
+        endEl.style.display = 'flex';
+        endTitle.innerText = "😭 哎呀！";
+        endMsg.innerHTML = `禮物還沒送完，再試一次吧！<br><br>得分: ${Math.floor(score)}`;
+    }
+
+    function spawnGift() {
+        if (!santaGroup) return;
+        const giftColor = Math.random() > 0.5 ? 0xff0000 : 0x00ff00;
+        const gift = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.5, 0.5), 
+            new THREE.MeshToonMaterial({ color: giftColor })
+        );
+        gift.position.copy(santaGroup.position);
+        gift.position.y = 0.5;
+        scene.add(gift);
+        gifts.push(gift);
+    }
+
+    // ==========================================
+    // 事件處理
+    // ==========================================
+
+    function setupEventListeners() {
+        // 鍵盤事件（電腦版備用）
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'ArrowRight') keys.right = true;
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && santaGroup.position.y <= 0.1) {
+                if (gameState === 'PLAYING') {
+                    playerVelocity.y = jumpForce;
+                    isJumping = true;
+                }
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'ArrowRight') keys.right = false;
+        });
+        
+        // 開始按鈕
+        const startHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startIntro();
+        };
+        
+        startBtn.addEventListener('click', startHandler);
+        startBtn.addEventListener('touchstart', startHandler, { passive: false });
+        restartBtn.addEventListener('click', startHandler);
+        restartBtn.addEventListener('touchstart', startHandler, { passive: false });
+
+        // 虛擬搖桿
+        joystickZone.addEventListener('touchstart', handleJoystickStart, { passive: false });
+        joystickZone.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        joystickZone.addEventListener('touchend', handleJoystickEnd, { passive: false });
+        
+        // 跳躍按鈕
+        jumpButton.addEventListener('touchstart', handleJump, { passive: false });
+        
+        // 視窗調整
+        window.addEventListener('resize', handleResize);
+        
+        // 防止頁面滾動和縮放
+        document.body.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+    }
+
+    function handleJoystickStart(e) {
+        e.preventDefault();
+        joystick.active = true;
+        updateJoystick(e.touches[0]);
+    }
+
+    function handleJoystickMove(e) {
+        e.preventDefault();
+        if (joystick.active) {
+            updateJoystick(e.touches[0]);
+        }
+    }
+
+    function handleJoystickEnd(e) {
+        e.preventDefault();
+        joystick.active = false;
+        joystick.x = 0;
+        joystick.y = 0;
+        joystickKnob.style.transform = 'translate(-50%, -50%)';
+    }
+
+    function handleJump(e) {
+        e.preventDefault();
+        if (gameState === 'PLAYING' && santaGroup.position.y <= 0.1) {
+            playerVelocity.y = jumpForce;
+            isJumping = true;
+        }
+    }
+
+    function handleResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function updateJoystick(touch) {
+        const rect = joystickZone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = touch.clientX - centerX;
+        const dy = touch.clientY - centerY;
+        const maxDist = rect.width / 2 - 10;
+        const dist = Math.min(Math.sqrt(dx * dx + dy * dy), maxDist);
+        const ang = Math.atan2(dy, dx);
+        
+        const offsetX = Math.cos(ang) * dist;
+        const offsetY = Math.sin(ang) * dist;
+        
+        joystickKnob.style.transform = 
+            `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+        
+        joystick.x = offsetX / maxDist;
+        joystick.y = offsetY / maxDist;
+    }
+
+    // ==========================================
+    // 動畫與更新
+    // ==========================================
+
+    function updateSantaAnimation() {
+        const time = Date.now() * 0.01;
+        const { leftArm, rightArm, leftLeg, rightLeg } = santaGroup.userData;
+        
+        if (santaGroup.position.y <= 0.1) {
+            leftLeg.rotation.x = Math.sin(time * 2) * 0.8;
+            rightLeg.rotation.x = Math.sin(time * 2 + Math.PI) * 0.8;
+            leftArm.rotation.x = Math.sin(time * 2 + Math.PI) * 0.8;
+            rightArm.rotation.x = Math.sin(time * 2) * 0.8;
+            bodyGroup.position.y = Math.sin(time * 4) * 0.05;
+        } else {
+            leftLeg.rotation.x = -0.5;
+            rightLeg.rotation.x = -0.5;
+            leftArm.rotation.x = -2.5;
+            rightArm.rotation.x = -2.5;
+        }
+    }
+
+    function updateIntroState(dt) {
+        introTime += dt;
+        
+        if (introTime < CONFIG.INTRO_MOVE_TIME) {
+            const progress = introTime / CONFIG.INTRO_MOVE_TIME;
+            santaGroup.position.x = -8 + (progress * 8);
+            const timeLeft = CONFIG.INTRO_DURATION - introTime;
+            if (timeLeft <= 4) {
+                centerText.innerText = Math.ceil(timeLeft - 1);
+            } else {
+                centerText.innerText = "準備送禮物囉...";
+            }
+        } 
+        else if (introTime < CONFIG.INTRO_DURATION) {
+            santaGroup.position.x = 0;
+            const rotProgress = (introTime - CONFIG.INTRO_MOVE_TIME) / 
+                               (CONFIG.INTRO_DURATION - CONFIG.INTRO_MOVE_TIME);
+            santaGroup.rotation.y = -Math.PI / 2 * (1 - rotProgress);
+            centerText.innerText = Math.ceil(CONFIG.INTRO_DURATION - introTime);
+        } 
+        else {
+            santaGroup.rotation.y = 0;
+            gameState = 'PLAYING';
+            speed = CONFIG.BASE_SPEED;
+            centerText.innerText = "GO!";
+            setTimeout(() => {
+                centerOverlay.style.display = 'none';
+            }, 1000);
+        }
+    }
+
+    function updatePlayingState(dt) {
+        gameTime += dt;
+        timerEl.innerText = `時間: ${Math.floor(gameTime)}s`;
+
+        updatePowerups(dt);
+        updatePlayerMovement(dt);
+        updateCamera();
+        handleObjectSpawning(dt);
+        handleCollisions();
+        cleanupDistantObjects();
+    }
+
+    function updatePowerups(dt) {
+        if (powerups.invincible > 0) {
+            powerups.invincible -= dt;
+            shieldMesh.visible = true;
+            shieldMesh.rotation.y += dt;
+        } else {
+            shieldMesh.visible = false;
+        }
+
+        if (powerups.fly > 0) {
+            powerups.fly -= dt;
+            if (powerups.fly <= 0) {
+                gravity = CONFIG.NORMAL_GRAVITY;
+                jumpForce = CONFIG.NORMAL_JUMP;
+            }
+        }
+
+        if (powerups.speed > 0) {
+            powerups.speed -= dt;
+            if (powerups.speed <= 0) {
+                speed = CONFIG.BASE_SPEED;
+            }
+        } else if (speed < 35) {
+            speed += dt * 0.1;
+        }
+
+        statusEl.innerHTML = '';
+        if (powerups.invincible > 0) {
+            statusEl.innerHTML += `<div class="status-msg">🛡️ 無敵 ${Math.ceil(powerups.invincible)}s</div>`;
+        }
+        if (powerups.fly > 0) {
+            statusEl.innerHTML += `<div class="status-msg">⭐ 飛行 ${Math.ceil(powerups.fly)}s</div>`;
+        }
+        if (powerups.speed > 0) {
+            statusEl.innerHTML += `<div class="status-msg">🚀 加速 ${Math.ceil(powerups.speed)}s</div>`;
+        }
+    }
+
+    function updatePlayerMovement(dt) {
+        santaGroup.position.z -= speed * dt;
+        
+        let moveX = 0;
+        if (keys.left) moveX = -1;
+        if (keys.right) moveX = 1;
+        if (joystick.active) moveX = joystick.x;
+        
+        santaGroup.position.x += moveX * 20 * dt;
+        santaGroup.position.x = Math.max(-CONFIG.MAX_X, Math.min(CONFIG.MAX_X, santaGroup.position.x));
+        
+        santaGroup.rotation.z = -moveX * 0.1;
+        santaGroup.rotation.y = -moveX * 0.2;
+        
+        playerVelocity.y += gravity * dt;
+        santaGroup.position.y += playerVelocity.y * dt;
+        
+        if (santaGroup.position.y > CONFIG.MAX_Y) {
+            santaGroup.position.y = CONFIG.MAX_Y;
+            if (playerVelocity.y > 0) playerVelocity.y = -2; 
+        }
+
+        if (santaGroup.position.y < CONFIG.GROUND_Y) {
+            santaGroup.position.y = CONFIG.GROUND_Y;
+            playerVelocity.y = 0;
+            isJumping = false;
+        }
+    }
+
+    function updateCamera() {
+        camera.position.z = santaGroup.position.z + 12;
+        camera.position.x = santaGroup.position.x * 0.3;
+        
+        if (ground) {
+            ground.position.z = santaGroup.position.z;
+        }
+        if (starField) {
+            starField.position.copy(camera.position);
+        }
+    }
+
+    function handleObjectSpawning(dt) {
+        if (gameTime < CONFIG.GAME_DURATION) {
+            const difficulty = getDifficulty();
+            spawnTimer += dt;
+            
+            if (spawnTimer > difficulty.spawnRate) {
+                spawnTimer = 0;
+                createObstacleObject(santaGroup.position.z + CONFIG.SPAWN_DISTANCE);
+            }
+        } else if (!endHouseSpawned) {
+            createEndHouse(santaGroup.position.z - 100);
+            endHouseSpawned = true;
+        }
+
+        giftSpawnTimer += dt;
+        if (giftSpawnTimer > CONFIG.SPAWN_RATES.gift) {
+            spawnGift();
+            giftSpawnTimer = 0;
+        }
+
+        scenerySpawnTimer += dt;
+        if (scenerySpawnTimer > CONFIG.SPAWN_RATES.scenery) {
+            scenerySpawnTimer = 0;
+            spawnScenery(santaGroup.position.z - 90);
+        }
+    }
+
+    function handleCollisions() {
+        const playerBox = new THREE.Box3()
+            .setFromObject(santaGroup)
+            .expandByScalar(CONFIG.COLLISION_MARGIN.player);
+        
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            const obs = obstacles[i];
+            
+            if (obs.userData.subtype === 'dog') {
+                const dTime = Date.now() * 0.02;
+                obs.userData.legs.forEach((leg, idx) => {
+                    leg.rotation.x = Math.sin(dTime + (idx % 2 === 0 ? 0 : Math.PI)) * 0.5;
+                });
+                obs.position.z += speed * 0.2 * clock.getDelta();
+            }
+            
+            if (obs.userData.rotate) {
+                obs.rotation.y += 3 * clock.getDelta();
+            }
+
+            const obsBox = new THREE.Box3().setFromObject(obs);
+            
+            if (obs.userData.type === 'obstacle' || obs.userData.subtype === 'dog') {
+                obsBox.expandByScalar(CONFIG.COLLISION_MARGIN.obstacle);
+                obsBox.max.y += CONFIG.COLLISION_MARGIN.obstacleHeightReduction;
+            }
+
+            if (playerBox.intersectsBox(obsBox)) {
+                if (obs.userData.type === 'end_house') {
+                    gameWin();
+                    return;
+                } 
+                else if (['kid', 'star', 'house_powerup'].includes(obs.userData.type)) {
+                    activateEffect(obs.userData.type, obs);
+                    disposeObject(obs);
+                    obstacles.splice(i, 1);
+                } 
+                else if (obs.userData.type === 'obstacle') {
+                    if (powerups.invincible > 0) {
+                        obs.position.y += 10;
+                        obs.rotation.z += 1;
+                    } else {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    function cleanupDistantObjects() {
+        const threshold = santaGroup.position.z + CONFIG.CLEANUP_DISTANCE;
+        
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            if (obstacles[i].position.z > threshold) {
+                disposeObject(obstacles[i]);
+                obstacles.splice(i, 1);
+            }
+        }
+        
+        for (let i = sceneryObjects.length - 1; i >= 0; i--) {
+            if (sceneryObjects[i].position.z > threshold) {
+                disposeObject(sceneryObjects[i]);
+                sceneryObjects.splice(i, 1);
+            }
+        }
+        
+        for (let i = gifts.length - 1; i >= 0; i--) {
+            const g = gifts[i];
+            g.rotation.y += 2 * clock.getDelta();
+            
+            if (g.position.z > camera.position.z + 2) {
+                score += 5;
+                updateScoreDisplay();
+                disposeObject(g);
+                gifts.splice(i, 1);
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.1);
+
+        if (gameState === 'INTRO' || gameState === 'PLAYING') {
+            updateSantaAnimation();
+        }
+
+        if (gameState === 'INTRO') {
+            updateIntroState(dt);
+        } else if (gameState === 'PLAYING') {
+            updatePlayingState(dt);
+        }
+        
+        updateSnow();
+        renderer.render(scene, camera);
+    }
+
+    init();
+
+</script>
+</body>
+</html>
